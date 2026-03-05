@@ -3,8 +3,10 @@
 import logging
 import os
 
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import health, incident
@@ -23,8 +25,7 @@ app = FastAPI(
 )
 
 # --- CORS ---
-_config = dotenv_values()
-_frontend_url = os.environ.get("FRONTEND_URL") or _config.get("FRONTEND_URL", "")
+_frontend_url = os.environ.get("FRONTEND_URL", "")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",

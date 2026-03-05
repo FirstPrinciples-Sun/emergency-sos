@@ -1,16 +1,18 @@
 """LINE Messaging API service – format and push incident alerts."""
 
 import logging
+import os
+
 import httpx
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 
 from models.schemas import IncidentReport, TriageResult
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-_config = dotenv_values()
-LINE_CHANNEL_ACCESS_TOKEN = _config.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-LINE_GROUP_ID = _config.get("LINE_GROUP_ID", "")
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+LINE_GROUP_ID = os.environ.get("LINE_GROUP_ID", "")
 
 LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push"
 

@@ -1,17 +1,18 @@
 """Supabase (PostgreSQL) logging service for incident records."""
 
 import logging
+import os
 
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from models.schemas import IncidentReport, TriageResult
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-_config = dotenv_values()
-SUPABASE_URL = _config.get("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY = _config.get("SUPABASE_SERVICE_KEY", "")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 _supabase: Client | None = None
 
