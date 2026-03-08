@@ -21,8 +21,10 @@ logging.basicConfig(
 app = FastAPI(
     title="Emergency SOS API",
     description="ระบบรับแจ้งเหตุฉุกเฉินอัจฉริยะ พร้อม AI Triage",
-    version="2.0.0",
+    version="2.1.0",
 )
+
+logger = logging.getLogger(__name__)
 
 # --- CORS ---
 _frontend_url = os.environ.get("FRONTEND_URL", "")
@@ -48,3 +50,9 @@ app.include_router(health.router)
 app.include_router(incident.router)
 app.include_router(documents_router)
 app.include_router(user_router)
+
+logger.info(
+    "Registered %d routes: %s",
+    len(app.routes),
+    [r.path for r in app.routes if hasattr(r, "path")],
+)
