@@ -6,12 +6,13 @@ import VoiceRecorder from "@/components/VoiceRecorder";
 import LocationCapture, { GpsStatus } from "@/components/LocationCapture";
 import EmergencyForm from "@/components/EmergencyForm";
 import ConfirmationScreen from "@/components/ConfirmationScreen";
+import ModeSelector from "@/components/ModeSelector";
 import InstallPrompt from "@/components/InstallPrompt";
 import BottomNav from "@/components/BottomNav";
 import { submitIncident } from "@/lib/api";
 import { useLiff } from "@/components/LiffProvider";
 
-type AppState = "idle" | "recording" | "form" | "submitting" | "done";
+type AppState = "idle" | "mode-select" | "recording" | "form" | "submitting" | "done";
 
 interface LocationData {
   latitude: number;
@@ -30,9 +31,10 @@ function getStepIndex(state: AppState): number {
 }
 
 export default function SOSPage() {
-  const { user, isLoggedIn, login, logout } = useLiff();
+  const { user, userProfile, isLoggedIn, login, logout } = useLiff();
 
   const [state, setState] = useState<AppState>("idle");
+  const [skipAi, setSkipAi] = useState(false);
   const [location, setLocation] = useState<LocationData | null>(null);
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("requesting");
   const [gpsError, setGpsError] = useState<string | null>(null);
@@ -58,10 +60,21 @@ export default function SOSPage() {
     setGpsRetryKey((k) => k + 1);
   };
 
-  const handleSOSPress = () => setState("recording");
+  const handleSOSPress = () => setState("mode-select");
 
   const handleCategoryPress = (cat: string) => {
     setCategory(cat);
+    setState("mode-select");
+  };
+
+  /* Mode selection handlers */
+  const handleSelectAI = () => {
+    setSkipAi(false);
+    setState("recording");
+  };
+
+  const handleSelectDirect = () => {
+    setSkipAi(true);
     setState("recording");
   };
 
@@ -113,17 +126,18 @@ export default function SOSPage() {
 
   const handleReset = () => {
     setState("idle");
+    setSkipAi(false);
     setAudioBase64(null);
     setTranscript(null);
     setCategory(undefined);
     setResponse(null);
     setError(null);
-    // Re-capture GPS for fresh location
     setLocation(null);
     setGpsRetryKey((k) => k + 1);
   };
 
   const currentStep = getStepIndex(state);
+  const defaultPhone = userProfile?.phone || "";
 
   return (
     <div className="relative w-full max-w-md mx-auto min-h-dvh flex flex-col overflow-hidden">
@@ -209,8 +223,8 @@ export default function SOSPage() {
         </div>
       )}
 
-      {/* Stepper - only show when not idle */}
-      {state !== "idle" && (
+      {/* Stepper - only show during recording/form/submitting/done */}
+      {(state === "recording" || state === "form" || state === "submitting" || state === "done") && (
         <div className="flex items-center justify-center gap-3 px-6 py-3 animate-fade-in-up">
           {STEPS.map((step, i) => (
             <div key={step.key} className="flex items-center gap-3">
@@ -265,6 +279,14 @@ export default function SOSPage() {
           <SOSButton onPress={handleSOSPress} onCategoryPress={handleCategoryPress} />
         )}
 
+        {state === "mode-select" && (
+          <ModeSelector
+            onSelectAI={handleSelectAI}
+            onSelectDirect={handleSelectDirect}
+            onBack={() => setState("idle")}
+          />
+        )}
+
         {state === "recording" && (
           <VoiceRecorder
             onComplete={handleRecordingComplete}
@@ -279,6 +301,8 @@ export default function SOSPage() {
             hasAudio={!!audioBase64}
             transcript={transcript || undefined}
             onBack={() => setState("recording")}
+            skipAi={skipAi}
+            defaultPhone={defaultPhone}
           />
         )}
 
@@ -288,12 +312,16 @@ export default function SOSPage() {
               <div className="w-20 h-20 border-4 border-primary/20 rounded-full" />
               <div className="absolute inset-0 w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary text-2xl">auto_awesome</span>
+                <span className="material-symbols-outlined text-primary text-2xl">
+                  {skipAi ? "bolt" : "auto_awesome"}
+                </span>
               </div>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold">กำลังส่งข้อมูล...</p>
-              <p className="text-sm text-slate-400 mt-1">AI กำลังวิเคราะห์และจัดลำดับเหตุการณ์</p>
+              <p className="text-sm text-slate-400 mt-1">
+                {skipAi ? "กำลังส่งข้อมูลให้เจ้าหน้าที่โดยตรง" : "AI กำลังวิเคราะห์และจัดลำดับเหตุการณ์"}
+              </p>
             </div>
           </div>
         )}

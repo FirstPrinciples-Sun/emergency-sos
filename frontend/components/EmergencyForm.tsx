@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface EmergencyFormProps {
   onSubmit: (data: {
@@ -13,6 +13,8 @@ interface EmergencyFormProps {
   transcript?: string;
   onBack: () => void;
   isSubmitting?: boolean;
+  skipAi?: boolean;
+  defaultPhone?: string;
 }
 
 export default function EmergencyForm({
@@ -21,28 +23,45 @@ export default function EmergencyForm({
   transcript,
   onBack,
   isSubmitting,
+  skipAi = false,
+  defaultPhone,
 }: EmergencyFormProps) {
   const [textDescription, setTextDescription] = useState(transcript || "");
   const [addressHint, setAddressHint] = useState("");
-  const [reporterPhone, setReporterPhone] = useState("");
+  const [reporterPhone, setReporterPhone] = useState(defaultPhone || "");
+
+  useEffect(() => {
+    if (defaultPhone && !reporterPhone) {
+      setReporterPhone(defaultPhone);
+    }
+  }, [defaultPhone]);
 
   const canSubmit = hasAudio || textDescription.trim().length > 0;
 
-  const handleSubmit = (skipAi: boolean) => {
+  const handleSubmit = () => {
     if (!canSubmit) return;
     onSubmit({
       textDescription: textDescription.trim() || undefined,
-      addressHint: addressHint.trim() || undefined,
+      addressHint: addressHint.trim() || "ไม่ระบุ",
       reporterPhone: reporterPhone.trim() || undefined,
       skipAi,
     });
   };
 
   return (
-    <div
-      className="w-full max-w-md flex flex-col gap-5 animate-fade-in-up"
-    >
-      {/* Audio recorded banner */}
+    <div className="w-full max-w-md flex flex-col gap-5 animate-fade-in-up">
+      {/* Mode indicator */}
+      <div className={`flex items-center gap-2 justify-center px-4 py-2 rounded-full text-sm font-bold ${
+        skipAi
+          ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
+          : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+      }`}>
+        <span className="material-symbols-outlined text-base">
+          {skipAi ? "bolt" : "auto_awesome"}
+        </span>
+        {skipAi ? "ส่งด่วน (ไม่ผ่าน AI)" : "AI วิเคราะห์"}
+      </div>
+
       {hasAudio && (
         <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
           <span className="material-symbols-outlined filled text-emerald-400">check_circle</span>
@@ -55,7 +74,6 @@ export default function EmergencyForm({
         </div>
       )}
 
-      {/* Text description */}
       <div className="space-y-2">
         <label htmlFor="description" className="flex items-center gap-2 text-sm font-semibold text-slate-300 ml-1">
           <span className="material-symbols-outlined text-lg text-slate-400">chat</span>
@@ -72,7 +90,6 @@ export default function EmergencyForm({
         />
       </div>
 
-      {/* Address hint */}
       <div className="space-y-2">
         <label htmlFor="address" className="flex items-center gap-2 text-sm font-semibold text-slate-300 ml-1">
           <span className="material-symbols-outlined text-lg text-slate-400">location_on</span>
@@ -87,14 +104,13 @@ export default function EmergencyForm({
             type="text"
             value={addressHint}
             onChange={(e) => setAddressHint(e.target.value)}
-            placeholder="เช่น หน้าเซเว่น ซอยสุขุมวิท 23"
+            placeholder="ไม่ระบุ (ใช้ GPS แทน)"
             maxLength={500}
             className="input-field pl-12"
           />
         </div>
       </div>
 
-      {/* Phone */}
       <div className="space-y-2">
         <label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-slate-300 ml-1">
           <span className="material-symbols-outlined text-lg text-slate-400">call</span>
@@ -116,41 +132,26 @@ export default function EmergencyForm({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex flex-col gap-3 mt-2">
-        {/* Two submit options */}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => handleSubmit(false)}
-            disabled={!canSubmit || isSubmitting}
-            className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all
-                       bg-primary hover:bg-primary-dark text-white
-                       shadow-lg shadow-primary/20
-                       active:scale-[0.98]
-                       disabled:bg-bg-surface disabled:text-slate-500 disabled:shadow-none
-                       flex flex-col items-center justify-center gap-1"
-          >
-            <span className="material-symbols-outlined text-xl">auto_awesome</span>
-            <span>AI วิเคราะห์แล้วส่ง</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit(true)}
-            disabled={!canSubmit || isSubmitting}
-            className="flex-1 py-4 rounded-2xl text-sm font-bold transition-all
-                       bg-orange-500 hover:bg-orange-600 text-white
-                       shadow-lg shadow-orange-500/20
-                       active:scale-[0.98]
-                       disabled:bg-bg-surface disabled:text-slate-500 disabled:shadow-none
-                       flex flex-col items-center justify-center gap-1"
-          >
-            <span className="material-symbols-outlined text-xl">bolt</span>
-            <span>ส่งทันที</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit || isSubmitting}
+          className={`w-full py-4 rounded-2xl text-base font-bold transition-all
+                     text-white shadow-lg active:scale-[0.98]
+                     disabled:bg-bg-surface disabled:text-slate-500 disabled:shadow-none
+                     flex items-center justify-center gap-2 ${
+                       skipAi
+                         ? "bg-orange-500 hover:bg-orange-600 shadow-orange-500/20"
+                         : "bg-primary hover:bg-primary-dark shadow-primary/20"
+                     }`}
+        >
+          <span className="material-symbols-outlined text-xl">
+            {skipAi ? "bolt" : "auto_awesome"}
+          </span>
+          {skipAi ? "ส่งด่วน" : "AI วิเคราะห์แล้วส่ง"}
+        </button>
 
-        {/* Back button */}
         <button
           type="button"
           onClick={onBack}

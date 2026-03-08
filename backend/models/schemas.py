@@ -84,3 +84,15 @@ class IncidentResponse(BaseModel):
     line_sent: bool = False
     message: str = "รับแจ้งเหตุเรียบร้อยแล้ว"
     audio_url: Optional[str] = None
+
+
+class UserProfile(BaseModel):
+    """Extended user profile with medical info."""
+
+    full_name: str = Field(default="", max_length=100)
+    phone: str = Field(default="", max_length=20)
+    blood_type: str = Field(default="", max_length=10)
+    allergies: str = Field(default="", max_length=500)
+    chronic_diseases: str = Field(default="", max_length=500)
+    emergency_contact_name: str = Field(default="", max_length=100)
+    emergency_contact_phone: str = Field(default="", max_length=20)

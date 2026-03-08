@@ -5,7 +5,6 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from models.schemas import TriageResult
 from prompts.dispatcher_prompt import DISPATCHER_SYSTEM_PROMPT, DISPATCHER_USER_TEMPLATE
@@ -20,7 +19,16 @@ MODEL = os.environ.get("LLM_MODEL", "gpt-5-nano")
 
 MAX_RETRIES = 2
 
-client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+# Lazy-init to avoid crashing module on bad env vars
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        from openai import OpenAI
+        _client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+    return _client
 
 async def analyze_incident(text: str) -> TriageResult:
     """Send incident text to KKU Gen AI and return a validated TriageResult."""
@@ -29,6 +37,7 @@ async def analyze_incident(text: str) -> TriageResult:
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
+            client = _get_client()
             response = client.chat.completions.create(
                 model=MODEL,
                 temperature=0.2,

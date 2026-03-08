@@ -48,7 +48,7 @@ export function liffLogin(): void {
 
 export function liffLogout(): void {
     if (!liffInstance) return;
-    sessionStorage.removeItem("liff-token");
+    localStorage.removeItem("liff-token");
     liffInstance.logout();
     window.location.reload();
 }

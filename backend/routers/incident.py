@@ -46,18 +46,18 @@ async def report_incident(
         audio_url = await upload_audio(report.incident_id, report.audio_base64)
 
     # --- Step 1: Resolve incident text ---
+    # Priority: user-edited text > Whisper STT > empty
     incident_text = ""
 
-    if report.audio_base64:
-        logger.info("Transcribing audio for incident %s", report.incident_id[:8])
-        incident_text = await transcribe_audio(report.audio_base64)
-
-    # Fallback / supplement with manual text
     if report.text_description:
-        if incident_text:
-            incident_text = f"{incident_text} {report.text_description}"
-        else:
-            incident_text = report.text_description
+        # User already provided / edited the text (from browser STT or typed)
+        incident_text = report.text_description
+        logger.info("Using user-provided text for incident %s (%d chars)",
+                     report.incident_id[:8], len(incident_text))
+    elif report.audio_base64:
+        # No user text – run Whisper STT on the audio as fallback
+        logger.info("No text provided, running Whisper STT for incident %s", report.incident_id[:8])
+        incident_text = await transcribe_audio(report.audio_base64)
 
     if not incident_text:
         raise HTTPException(

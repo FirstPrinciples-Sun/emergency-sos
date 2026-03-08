@@ -1,10 +1,78 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useLiff } from "@/components/LiffProvider";
+import { updateProfile } from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
 
+const BLOOD_TYPES = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
 export default function ProfilePage() {
-  const { user, isLoggedIn, isLoading, login, logout } = useLiff();
+  const { user, userProfile, isLoggedIn, isLoading, login, logout, refreshProfile } = useLiff();
+
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Form fields
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [bloodType, setBloodType] = useState("");
+  const [allergies, setAllergies] = useState("");
+  const [chronicDiseases, setChronicDiseases] = useState("");
+  const [emergencyContactName, setEmergencyContactName] = useState("");
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
+
+  // Populate form from profile
+  useEffect(() => {
+    if (userProfile) {
+      setFullName(userProfile.full_name || "");
+      setPhone(userProfile.phone || "");
+      setBloodType(userProfile.blood_type || "");
+      setAllergies(userProfile.allergies || "");
+      setChronicDiseases(userProfile.chronic_diseases || "");
+      setEmergencyContactName(userProfile.emergency_contact_name || "");
+      setEmergencyContactPhone(userProfile.emergency_contact_phone || "");
+    }
+  }, [userProfile]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await updateProfile({
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        blood_type: bloodType,
+        allergies: allergies.trim(),
+        chronic_diseases: chronicDiseases.trim(),
+        emergency_contact_name: emergencyContactName.trim(),
+        emergency_contact_phone: emergencyContactPhone.trim(),
+      });
+      await refreshProfile();
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("[Profile] Save failed:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    // Reset to profile values
+    if (userProfile) {
+      setFullName(userProfile.full_name || "");
+      setPhone(userProfile.phone || "");
+      setBloodType(userProfile.blood_type || "");
+      setAllergies(userProfile.allergies || "");
+      setChronicDiseases(userProfile.chronic_diseases || "");
+      setEmergencyContactName(userProfile.emergency_contact_name || "");
+      setEmergencyContactPhone(userProfile.emergency_contact_phone || "");
+    }
+  };
 
   return (
     <div className="relative w-full max-w-md mx-auto min-h-dvh flex flex-col pb-24">
@@ -42,6 +110,14 @@ export default function ProfilePage() {
           </div>
         ) : (
           <>
+            {/* Saved toast */}
+            {saved && (
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 animate-scale-in">
+                <span className="material-symbols-outlined filled text-emerald-400">check_circle</span>
+                <span className="text-sm font-semibold text-emerald-300">บันทึกข้อมูลเรียบร้อยแล้ว</span>
+              </div>
+            )}
+
             {/* User card */}
             <div className="card-elevated p-6 flex items-center gap-4">
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-500/30 shrink-0">
@@ -61,10 +137,10 @@ export default function ProfilePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-lg font-bold text-white truncate">
-                  {user?.displayName || "ไม่ทราบชื่อ"}
+                  {userProfile?.full_name || user?.displayName || "ไม่ทราบชื่อ"}
                 </p>
                 <p className="text-xs text-slate-500 truncate">
-                  LINE ID: {user?.userId?.slice(0, 12)}...
+                  LINE: {user?.displayName}
                 </p>
                 <div className="mt-1 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -72,6 +148,204 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* Personal Info Section */}
+            <div className="card-elevated p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-primary">badge</span>
+                  ข้อมูลส่วนตัว
+                </h2>
+                {!editing && (
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="text-xs font-semibold text-primary hover:text-primary-light flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit</span>
+                    แก้ไข
+                  </button>
+                )}
+              </div>
+
+              {editing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">ชื่อ-นามสกุล *</label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="input-field"
+                      placeholder="ชื่อ นามสกุล"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">เบอร์โทร *</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="input-field"
+                      placeholder="0812345678"
+                      maxLength={20}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span>ชื่อ-นามสกุล</span>
+                    <span className="text-white font-medium">{userProfile?.full_name || "-"}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>เบอร์โทร</span>
+                    <span className="text-white font-medium">{userProfile?.phone || "-"}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Medical Info Section */}
+            <div className="card-elevated p-5 space-y-4">
+              <h2 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-red-400">medical_information</span>
+                ข้อมูลทางการแพทย์
+              </h2>
+
+              {editing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">กรุ๊ปเลือด</label>
+                    <select
+                      value={bloodType}
+                      onChange={(e) => setBloodType(e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="">ไม่ระบุ</option>
+                      {BLOOD_TYPES.filter(b => b).map((bt) => (
+                        <option key={bt} value={bt}>{bt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">ประวัติแพ้ยา / สารก่อภูมิแพ้</label>
+                    <textarea
+                      value={allergies}
+                      onChange={(e) => setAllergies(e.target.value)}
+                      className="input-field-area"
+                      placeholder="เช่น แพ้เพนิซิลิน, แพ้อาหารทะเล"
+                      rows={2}
+                      maxLength={500}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">โรคประจำตัว</label>
+                    <textarea
+                      value={chronicDiseases}
+                      onChange={(e) => setChronicDiseases(e.target.value)}
+                      className="input-field-area"
+                      placeholder="เช่น เบาหวาน, ความดันสูง"
+                      rows={2}
+                      maxLength={500}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span>กรุ๊ปเลือด</span>
+                    <span className="text-white font-medium">{userProfile?.blood_type || "-"}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>แพ้ยา/สารก่อภูมิแพ้</span>
+                    <span className="text-white font-medium text-right max-w-[60%] truncate">
+                      {userProfile?.allergies || "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>โรคประจำตัว</span>
+                    <span className="text-white font-medium text-right max-w-[60%] truncate">
+                      {userProfile?.chronic_diseases || "-"}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Emergency Contact Section */}
+            <div className="card-elevated p-5 space-y-4">
+              <h2 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-orange-400">contact_phone</span>
+                ผู้ติดต่อฉุกเฉิน
+              </h2>
+
+              {editing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">ชื่อผู้ติดต่อ</label>
+                    <input
+                      type="text"
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                      className="input-field"
+                      placeholder="ชื่อญาติ/คนใกล้ชิด"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 mb-1 block">เบอร์โทรฉุกเฉิน</label>
+                    <input
+                      type="tel"
+                      value={emergencyContactPhone}
+                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                      className="input-field"
+                      placeholder="0812345678"
+                      maxLength={20}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span>ชื่อ</span>
+                    <span className="text-white font-medium">{userProfile?.emergency_contact_name || "-"}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>เบอร์โทร</span>
+                    <span className="text-white font-medium">{userProfile?.emergency_contact_phone || "-"}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Edit actions */}
+            {editing && (
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="flex-1 py-3 bg-bg-surface hover:bg-bg-card border border-white/5
+                             rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !fullName.trim() || !phone.trim()}
+                  className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white
+                             rounded-xl text-sm font-bold transition-all disabled:opacity-50
+                             flex items-center justify-center gap-2"
+                >
+                  {saving ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined text-lg">save</span>
+                  )}
+                  {saving ? "กำลังบันทึก..." : "บันทึก"}
+                </button>
+              </div>
+            )}
 
             {/* Info section */}
             <div className="card-elevated p-5 space-y-4">
@@ -91,6 +365,12 @@ export default function ProfilePage() {
                 <div className="flex justify-between text-slate-400">
                   <span>ระบบ AI</span>
                   <span className="text-emerald-400 font-medium">พร้อมใช้งาน</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>PDPA</span>
+                  <span className="text-emerald-400 font-medium">
+                    {userProfile?.pdpa_accepted ? "ยินยอมแล้ว" : "ยังไม่ยินยอม"}
+                  </span>
                 </div>
               </div>
             </div>

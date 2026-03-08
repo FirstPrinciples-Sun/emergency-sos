@@ -37,6 +37,20 @@ export interface IncidentResponse {
   audio_url?: string | null;
 }
 
+export interface UserProfile {
+  userId: string;
+  displayName?: string;
+  pictureUrl?: string;
+  full_name: string;
+  phone: string;
+  blood_type: string;
+  allergies: string;
+  chronic_diseases: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  pdpa_accepted: boolean;
+}
+
 /**
  * Get stored LIFF access token (if available).
  */
@@ -44,11 +58,9 @@ function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  // Try to get token from LIFF (client-side only)
   if (typeof window !== "undefined") {
     try {
-      // Dynamic import already happened in LiffProvider, safe to check
-      const token = sessionStorage.getItem("liff-token");
+      const token = localStorage.getItem("liff-token");
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
@@ -81,5 +93,48 @@ export async function submitIncident(
 
 export async function healthCheck(): Promise<{ status: string }> {
   const response = await fetch(`${API_BASE}/health`);
+  return response.json();
+}
+
+export async function getMyProfile(): Promise<UserProfile> {
+  const response = await fetch(`${API_BASE}/api/me`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to get profile");
+  return response.json();
+}
+
+export async function checkPdpaStatus(): Promise<{ accepted: boolean }> {
+  const response = await fetch(`${API_BASE}/api/pdpa-status`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to check PDPA");
+  return response.json();
+}
+
+export async function acceptPdpa(): Promise<{ accepted: boolean }> {
+  const response = await fetch(`${API_BASE}/api/pdpa-consent`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to accept PDPA");
+  return response.json();
+}
+
+export async function updateProfile(data: {
+  full_name?: string;
+  phone?: string;
+  blood_type?: string;
+  allergies?: string;
+  chronic_diseases?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+}): Promise<{ updated: boolean }> {
+  const response = await fetch(`${API_BASE}/api/me/profile`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to update profile");
   return response.json();
 }

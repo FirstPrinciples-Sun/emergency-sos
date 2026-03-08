@@ -92,8 +92,28 @@ CREATE POLICY "Users can delete own documents"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'documents');
 
--- 6. RLS policies (optional - since we use service key, RLS is bypassed)
--- If you want RLS on the tables:
+-- 6. PDPA Consent table
+CREATE TABLE IF NOT EXISTS pdpa_consents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    line_user_id TEXT NOT NULL REFERENCES users(line_user_id),
+    consent_version TEXT NOT NULL DEFAULT '1.0',
+    accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ip_address TEXT,
+    user_agent TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_pdpa_consents_user ON pdpa_consents(line_user_id);
+
+-- 7. Extend users table with PDPA + medical info
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pdpa_accepted_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blood_type TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS allergies TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS chronic_diseases TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT DEFAULT '';
+
+-- 8. RLS policies (optional - since we use service key, RLS is bypassed)
 -- ALTER TABLE incidents ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE users ENABLE ROW LEVEL SECURITY;

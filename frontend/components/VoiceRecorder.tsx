@@ -10,7 +10,6 @@ interface VoiceRecorderProps {
 
 const MAX_SECONDS = 60;
 
-// Web Speech API types
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
   resultIndex: number;
@@ -18,6 +17,28 @@ interface SpeechRecognitionEvent extends Event {
 
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
+}
+
+function getSupportedMimeType(): string {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+    "audio/mp4",
+    "audio/aac",
+  ];
+  for (const t of types) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) {
+      return t;
+    }
+  }
+  return "";
+}
+
+function mimeToDataUriPrefix(mime: string): string {
+  const base = mime.split(";")[0] || "audio/webm";
+  return `data:${base};base64,`;
 }
 
 export default function VoiceRecorder({
@@ -36,6 +57,7 @@ export default function VoiceRecorder({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef("");
+  const mimeTypeRef = useRef("");
 
   useEffect(() => {
     return () => {
@@ -72,12 +94,13 @@ export default function VoiceRecorder({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // --- MediaRecorder for audio backup ---
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm",
-      });
+      const mimeType = getSupportedMimeType();
+      mimeTypeRef.current = mimeType;
+
+      const recorderOptions: MediaRecorderOptions = {};
+      if (mimeType) recorderOptions.mimeType = mimeType;
+
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -85,7 +108,8 @@ export default function VoiceRecorder({
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const actualMime = mimeTypeRef.current || mediaRecorder.mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: actualMime });
         const buffer = await blob.arrayBuffer();
         const base64 = btoa(
           new Uint8Array(buffer).reduce(
@@ -94,10 +118,11 @@ export default function VoiceRecorder({
           )
         );
 
-        // Use ref to avoid stale closure over transcript state
+        const dataUri = mimeToDataUriPrefix(actualMime) + base64;
+
         const finalTranscript = transcriptRef.current.trim();
         onComplete({
-          audio: base64,
+          audio: dataUri,
           transcript: finalTranscript || undefined,
         });
       };
@@ -105,7 +130,7 @@ export default function VoiceRecorder({
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start(250);
 
-      // --- Web Speech API for real-time Thai transcription ---
+      // Web Speech API for real-time Thai transcription
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -140,7 +165,6 @@ export default function VoiceRecorder({
         };
 
         recognition.onend = () => {
-          // Restart if still recording (speech recognition stops automatically sometimes)
           if (mediaRecorderRef.current?.state === "recording") {
             try { recognition.start(); } catch {}
           }
@@ -176,7 +200,6 @@ export default function VoiceRecorder({
   const progress = seconds / MAX_SECONDS;
   const displayTranscript = transcript + interimTranscript;
 
-  // --- Permission Denied ---
   if (permissionDenied) {
     return (
       <div className="card-elevated w-full max-w-md flex flex-col items-center gap-5 p-8 animate-scale-in">
@@ -188,23 +211,23 @@ export default function VoiceRecorder({
             ไม่สามารถเข้าถึงไมโครโฟนได้
           </p>
           <p className="text-sm text-slate-400">
-            กรุณาอนุญาตการใช้งานไมโครโฟน หรือพิมพ์ข้อความแทน
+            กรุณาอนุญาตการใช้งานไมโครโฟนในตั้งค่าเบราว์เซอร์ หรือพิมพ์ข้อความแทน
           </p>
         </div>
         <button
           onClick={onSkip}
-          className="w-full py-4 bg-bg-surface hover:bg-bg-card rounded-full text-lg font-semibold transition-colors"
+          className="w-full py-4 bg-primary hover:bg-primary-dark text-white rounded-2xl text-base font-bold transition-all
+                     flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
         >
+          <span className="material-symbols-outlined text-lg">keyboard</span>
           พิมพ์ข้อความแทน
         </button>
       </div>
     );
   }
 
-  // --- Main Recorder ---
   return (
-    <div className="card-elevated w-full max-w-md flex flex-col items-center gap-5 p-6 animate-fade-in-up">
-      {/* Category badge if set */}
+    <div className="card-elevated w-full max-w-md flex flex-col items-center gap-4 p-6 animate-fade-in-up">
       {category && (
         <div className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-bold">
           <span className="material-symbols-outlined text-base">category</span>
@@ -212,15 +235,22 @@ export default function VoiceRecorder({
         </div>
       )}
 
-      <p className="text-base font-semibold text-center text-slate-200">
-        {isRecording
-          ? "กำลังฟัง... พูดอธิบายเหตุการณ์"
-          : "กดปุ่มไมค์แล้วพูดอธิบายเหตุการณ์"}
-      </p>
+      {/* Instruction */}
+      {!isRecording ? (
+        <div className="text-center space-y-1">
+          <p className="text-lg font-bold text-white">บันทึกเสียงอธิบายเหตุ</p>
+          <p className="text-sm text-slate-400">กดปุ่มไมค์สีแดง แล้วพูดอธิบายสิ่งที่เกิดขึ้น</p>
+        </div>
+      ) : (
+        <div className="text-center">
+          <p className="text-lg font-bold text-primary animate-pulse">กำลังฟัง...</p>
+          <p className="text-sm text-slate-400 mt-0.5">พูดอธิบายเหตุการณ์ได้เลย</p>
+        </div>
+      )}
 
-      {/* Central circle with progress ring */}
-      <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
-        {/* SVG progress ring */}
+      {/* Mic button */}
+      <div className="relative flex items-center justify-center my-2" style={{ width: 160, height: 160 }}>
+        {/* Progress ring */}
         {isRecording && (
           <svg className="absolute inset-0" width={160} height={160} viewBox="0 0 160 160">
             <circle cx={80} cy={80} r={72} fill="none" stroke="rgba(100,116,139,0.15)" strokeWidth={4} />
@@ -235,31 +265,40 @@ export default function VoiceRecorder({
           </svg>
         )}
 
+        {/* Pulse rings when idle */}
+        {!isRecording && (
+          <>
+            <div className="absolute w-40 h-40 rounded-full border-2 border-red-500/10 animate-ping" style={{ animationDuration: "2s" }} />
+            <div className="absolute w-36 h-36 rounded-full border border-red-500/5 animate-ping" style={{ animationDuration: "2.5s" }} />
+          </>
+        )}
+
         {!isRecording ? (
           <button
             onClick={startRecording}
             className="relative z-10 w-32 h-32 rounded-full
                        bg-gradient-to-br from-red-500 to-primary-dark
                        hover:from-red-400 hover:to-primary
-                       flex items-center justify-center transition-all
-                       shadow-lg shadow-primary/30
+                       flex flex-col items-center justify-center transition-all
+                       shadow-xl shadow-red-500/30
                        focus:outline-none active:scale-95"
             aria-label="เริ่มบันทึกเสียง"
           >
             <span className="material-symbols-outlined text-white text-5xl">mic</span>
+            <span className="text-white/80 text-[10px] font-bold mt-1 uppercase tracking-wider">กดเพื่อพูด</span>
           </button>
         ) : (
           <button
             onClick={stopRecording}
             className="relative z-10 w-32 h-32 rounded-full
-                       bg-bg-surface border-2 border-primary/50
+                       bg-bg-surface border-2 border-primary/40
                        flex flex-col items-center justify-center transition-all
-                       hover:bg-bg-card active:scale-95
-                       focus:outline-none"
+                       hover:bg-bg-card hover:border-primary/60 active:scale-95
+                       focus:outline-none shadow-lg"
             aria-label="หยุดบันทึกเสียง"
           >
             {/* Wave bars */}
-            <div className="flex items-center gap-[3px] mb-2">
+            <div className="flex items-center gap-[3px] mb-1.5">
               {Array.from({ length: 9 }).map((_, i) => (
                 <div
                   key={i}
@@ -268,21 +307,23 @@ export default function VoiceRecorder({
                 />
               ))}
             </div>
-            <span className="text-xs text-slate-400 font-medium">กดเพื่อหยุด</span>
+            <span className="text-primary text-xs font-bold">หยุดบันทึก</span>
           </button>
         )}
       </div>
 
       {/* Timer */}
       {isRecording && (
-        <div className="text-center">
+        <div className="flex items-center gap-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
           <span className="recording-pulse text-3xl font-mono tabular-nums text-primary font-bold">
             {formatTime(seconds)}
           </span>
+          <span className="text-xs text-slate-500">/ {formatTime(MAX_SECONDS)}</span>
         </div>
       )}
 
-      {/* Real-time transcript */}
+      {/* Live transcript */}
       {isRecording && displayTranscript && (
         <div className="w-full bg-bg-surface rounded-xl p-4 border border-white/5 animate-fade-in-up">
           <div className="flex items-center gap-2 mb-2">
@@ -292,24 +333,26 @@ export default function VoiceRecorder({
           <p className="text-sm text-slate-200 leading-relaxed">
             {transcript}
             {interimTranscript && (
-              <span className="text-slate-500">{interimTranscript}</span>
+              <span className="text-slate-500 italic">{interimTranscript}</span>
             )}
           </p>
         </div>
       )}
 
-      {/* Max time hint */}
+      {/* Bottom actions */}
       {!isRecording && (
-        <>
-          <p className="text-sm text-slate-500">สูงสุด 60 วินาที • ถอดเสียงอัตโนมัติ</p>
+        <div className="w-full flex flex-col gap-2 mt-1">
+          <p className="text-xs text-slate-500 text-center">สูงสุด 60 วินาที &middot; ระบบจะแปลงเสียงเป็นข้อความอัตโนมัติ</p>
           <button
             onClick={onSkip}
-            className="text-slate-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+            className="w-full py-3 bg-bg-surface hover:bg-bg-card border border-white/5
+                       rounded-full text-sm font-semibold transition-all
+                       flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-base">keyboard</span>
-            พิมพ์ข้อความแทน
+            ข้ามขั้นตอนนี้ &middot; พิมพ์ข้อความแทน
           </button>
-        </>
+        </div>
       )}
     </div>
   );
