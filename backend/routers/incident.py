@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Header
+from pydantic import BaseModel
 
 from models.schemas import IncidentReport, IncidentResponse, IncidentStatus, TriageResult
 from services.stt_service import transcribe_audio
@@ -14,6 +15,24 @@ from services.auth import verify_liff_token, extract_token
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["incident"])
+
+
+# ── Transcribe-only endpoint ──────────────────────────────────────
+class TranscribeRequest(BaseModel):
+    audio_base64: str
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+
+
+@router.post("/transcribe", response_model=TranscribeResponse)
+async def transcribe_endpoint(req: TranscribeRequest) -> TranscribeResponse:
+    """Transcribe audio to text via Whisper – called by frontend after recording."""
+    if not req.audio_base64:
+        raise HTTPException(status_code=400, detail="No audio data provided")
+    text = await transcribe_audio(req.audio_base64)
+    return TranscribeResponse(text=text)
 
 
 @router.post("/report-incident", response_model=IncidentResponse)

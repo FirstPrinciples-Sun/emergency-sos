@@ -9,10 +9,10 @@ import ConfirmationScreen from "@/components/ConfirmationScreen";
 import ModeSelector from "@/components/ModeSelector";
 import InstallPrompt from "@/components/InstallPrompt";
 import BottomNav from "@/components/BottomNav";
-import { submitIncident } from "@/lib/api";
+import { submitIncident, transcribeAudio } from "@/lib/api";
 import { useLiff } from "@/components/LiffProvider";
 
-type AppState = "idle" | "mode-select" | "recording" | "form" | "submitting" | "done";
+type AppState = "idle" | "mode-select" | "recording" | "transcribing" | "form" | "submitting" | "done";
 
 interface LocationData {
   latitude: number;
@@ -26,7 +26,7 @@ const STEPS = [
 ] as const;
 
 function getStepIndex(state: AppState): number {
-  if (state === "submitting") return 1;
+  if (state === "submitting" || state === "transcribing") return 1;
   return STEPS.findIndex((s) => s.key === state);
 }
 
@@ -78,9 +78,23 @@ export default function SOSPage() {
     setState("recording");
   };
 
-  const handleRecordingComplete = (data: { audio?: string; transcript?: string }) => {
+  const handleRecordingComplete = async (data: { audio?: string; transcript?: string }) => {
     if (data.audio) setAudioBase64(data.audio);
-    if (data.transcript) setTranscript(data.transcript);
+    if (data.transcript) {
+      setTranscript(data.transcript);
+      setState("form");
+      return;
+    }
+    // No browser transcript – run Whisper STT on backend
+    if (data.audio) {
+      setState("transcribing");
+      try {
+        const text = await transcribeAudio(data.audio);
+        if (text) setTranscript(text);
+      } catch (err) {
+        console.warn("Whisper transcription failed:", err);
+      }
+    }
     setState("form");
   };
 
@@ -223,8 +237,8 @@ export default function SOSPage() {
         </div>
       )}
 
-      {/* Stepper - only show during recording/form/submitting/done */}
-      {(state === "recording" || state === "form" || state === "submitting" || state === "done") && (
+      {/* Stepper - only show during recording/transcribing/form/submitting/done */}
+      {(state === "recording" || state === "transcribing" || state === "form" || state === "submitting" || state === "done") && (
         <div className="flex items-center justify-center gap-3 px-6 py-3 animate-fade-in-up">
           {STEPS.map((step, i) => (
             <div key={step.key} className="flex items-center gap-3">
@@ -293,6 +307,24 @@ export default function SOSPage() {
             onSkip={handleSkipRecording}
             category={category}
           />
+        )}
+
+        {state === "transcribing" && (
+          <div className="flex flex-col items-center gap-5 animate-fade-in-up">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-blue-500/20 rounded-full" />
+              <div className="absolute inset-0 w-20 h-20 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="material-symbols-outlined text-blue-400 text-2xl">hearing</span>
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold">กำลังแปลงเสียง...</p>
+              <p className="text-sm text-slate-400 mt-1">
+                Whisper AI กำลังแปลงเสียงเป็นข้อความ
+              </p>
+            </div>
+          </div>
         )}
 
         {state === "form" && (

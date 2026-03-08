@@ -91,6 +91,19 @@ export async function submitIncident(
   return response.json();
 }
 
+export async function transcribeAudio(
+  audioBase64: string
+): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/transcribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ audio_base64: audioBase64 }),
+  });
+  if (!response.ok) return "";
+  const data = await response.json();
+  return data.text || "";
+}
+
 export async function healthCheck(): Promise<{ status: string }> {
   const response = await fetch(`${API_BASE}/health`);
   return response.json();

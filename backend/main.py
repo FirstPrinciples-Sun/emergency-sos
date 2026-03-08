@@ -22,7 +22,7 @@ logging.basicConfig(
 app = FastAPI(
     title="Emergency SOS API",
     description="ระบบรับแจ้งเหตุฉุกเฉินอัจฉริยะ พร้อม AI Triage",
-    version="2.3.0",
+    version="2.4.0",
 )
 
 logger = logging.getLogger(__name__)
