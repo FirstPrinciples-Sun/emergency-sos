@@ -16,11 +16,11 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Groq Whisper (free) – fallback to KKU if GROQ key not set
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
 
 # Fallback: KKU endpoint
-_KKU_API_KEY = os.environ.get("API_KEY", "")
+_KKU_API_KEY = os.environ.get("API_KEY", "").strip()
 _KKU_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://gen.ai.kku.ac.th/api/v1")
 
 
