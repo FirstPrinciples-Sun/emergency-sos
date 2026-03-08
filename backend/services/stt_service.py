@@ -1,4 +1,4 @@
-"""Speech-to-Text service using OpenAI-compatible Whisper API via KKU endpoint."""
+"""Speech-to-Text service using Groq Whisper API (free, fast, high-quality)."""
 
 import base64
 import io
@@ -10,12 +10,14 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# KKU Gen AI endpoint (OpenAI-compatible)
-API_KEY = os.environ.get("API_KEY", "")
-BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://gen.ai.kku.ac.th/api/v1")
-STT_MODEL = os.environ.get("STT_MODEL", "whisper-1")
+# Groq Whisper (free) – fallback to KKU if GROQ key not set
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
 
-# Lazy-init to avoid crashing module on bad env vars
+# Fallback: KKU endpoint
+_KKU_API_KEY = os.environ.get("API_KEY", "")
+_KKU_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://gen.ai.kku.ac.th/api/v1")
+
 _client = None
 
 
@@ -23,7 +25,16 @@ def _get_client():
     global _client
     if _client is None:
         from openai import OpenAI
-        _client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+
+        if GROQ_API_KEY:
+            _client = OpenAI(
+                api_key=GROQ_API_KEY,
+                base_url="https://api.groq.com/openai/v1",
+            )
+            logger.info("STT: Using Groq Whisper (%s)", STT_MODEL)
+        else:
+            _client = OpenAI(api_key=_KKU_API_KEY, base_url=_KKU_BASE_URL)
+            logger.info("STT: Falling back to KKU endpoint")
     return _client
 
 
@@ -51,7 +62,6 @@ def _detect_audio_ext(data_uri_header: str | None) -> str:
     """Detect file extension from data URI header like 'data:audio/webm;codecs=opus;base64'."""
     if not data_uri_header:
         return ".webm"
-    # e.g. "data:audio/webm;codecs=opus;base64" -> "audio/webm"
     try:
         mime_part = data_uri_header.replace("data:", "").split(";")[0]
         return MIME_EXT_MAP.get(mime_part, ".webm")
@@ -60,7 +70,7 @@ def _detect_audio_ext(data_uri_header: str | None) -> str:
 
 
 async def transcribe_audio(audio_base64: str) -> str:
-    """Decode base64 audio and transcribe via OpenAI-compatible Whisper API."""
+    """Decode base64 audio and transcribe via Groq Whisper API."""
     if not audio_base64:
         return ""
 
@@ -93,14 +103,15 @@ async def transcribe_audio(audio_base64: str) -> str:
             transcribed = transcription.text.strip()
             if transcribed:
                 logger.info(
-                    "Whisper transcription succeeded (%d chars, format=%s)",
+                    "STT transcription succeeded (%d chars, format=%s, model=%s)",
                     len(transcribed),
                     attempt_ext,
+                    STT_MODEL,
                 )
                 return transcribed
-            logger.warning("Whisper returned empty text (format=%s)", attempt_ext)
+            logger.warning("STT returned empty text (format=%s)", attempt_ext)
         except Exception as exc:
-            logger.warning("Whisper attempt failed (format=%s): %s", attempt_ext, exc)
+            logger.warning("STT attempt failed (format=%s): %s", attempt_ext, exc)
 
-    logger.error("All Whisper transcription attempts failed")
+    logger.error("All STT transcription attempts failed")
     return ""
