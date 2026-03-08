@@ -132,7 +132,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS chronic_diseases TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT DEFAULT '';
 
--- 8. RLS policies (optional - since we use service key, RLS is bypassed)
+-- 8. LINE Groups table (auto-tracked via webhook)
+CREATE TABLE IF NOT EXISTS line_groups (
+    group_id TEXT PRIMARY KEY,
+    group_name TEXT DEFAULT '',
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    active BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_line_groups_active ON line_groups (active) WHERE active = TRUE;
+
+-- 9. RLS policies (optional - since we use service key, RLS is bypassed)
 -- ALTER TABLE incidents ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE users ENABLE ROW LEVEL SECURITY;

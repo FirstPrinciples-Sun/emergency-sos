@@ -1,4 +1,4 @@
-"""LINE Messaging API service – format and push incident alerts to multiple groups."""
+"""LINE Messaging API service – format and push incident alerts to all registered groups."""
 
 import asyncio
 import logging
@@ -14,10 +14,9 @@ logger = logging.getLogger(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
 
-# Support multiple group IDs (comma-separated) via LINE_GROUP_IDS
-# Falls back to single LINE_GROUP_ID for backward compatibility
+# Env-var fallback: manual group IDs (comma-separated)
 _raw_ids = os.environ.get("LINE_GROUP_IDS", "") or os.environ.get("LINE_GROUP_ID", "")
-LINE_GROUP_IDS: list[str] = [gid.strip() for gid in _raw_ids.split(",") if gid.strip()]
+_ENV_GROUP_IDS: list[str] = [gid.strip() for gid in _raw_ids.split(",") if gid.strip()]
 
 LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push"
 
@@ -103,20 +102,32 @@ async def _push_to_group(group_id: str, text: str) -> bool:
         return False
 
 
-async def _broadcast_to_groups(text: str, incident_id: str) -> bool:
-    """Send a message to ALL configured LINE groups in parallel.
+async def _get_all_group_ids() -> list[str]:
+    """Merge DB groups + env-var groups (deduplicated)."""
+    from services.supabase_service import get_active_line_groups
 
+    db_groups = await get_active_line_groups()
+    all_ids = list(dict.fromkeys(db_groups + _ENV_GROUP_IDS))  # dedupe, preserve order
+    return all_ids
+
+
+async def _broadcast_to_groups(text: str, incident_id: str) -> bool:
+    """Send a message to ALL registered LINE groups in parallel.
+
+    Groups are auto-discovered from the database (webhook) + env var fallback.
     Returns True if at least one group received the notification.
     """
-    if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_GROUP_IDS:
-        logger.warning("LINE credentials not configured – skipping notification")
+    group_ids = await _get_all_group_ids()
+
+    if not LINE_CHANNEL_ACCESS_TOKEN or not group_ids:
+        logger.warning("LINE credentials or groups not configured – skipping notification")
         return False
 
-    tasks = [_push_to_group(gid, text) for gid in LINE_GROUP_IDS]
+    tasks = [_push_to_group(gid, text) for gid in group_ids]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     success_count = sum(1 for r in results if r is True)
-    total = len(LINE_GROUP_IDS)
+    total = len(group_ids)
     logger.info(
         "LINE broadcast for %s: %d/%d groups notified",
         incident_id[:8],

@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routers import health, incident
 from routers.documents import router as documents_router
+from routers.line_webhook import router as line_webhook_router
 from routers.user import router as user_router
 
 logging.basicConfig(
@@ -21,7 +22,7 @@ logging.basicConfig(
 app = FastAPI(
     title="Emergency SOS API",
     description="ระบบรับแจ้งเหตุฉุกเฉินอัจฉริยะ พร้อม AI Triage",
-    version="2.2.0",
+    version="2.3.0",
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(incident.router)
 app.include_router(documents_router)
+app.include_router(line_webhook_router)
 app.include_router(user_router)
 
 logger.info(

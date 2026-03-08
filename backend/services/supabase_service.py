@@ -285,6 +285,64 @@ async def update_user_profile(line_user_id: str, profile_data: dict) -> bool:
         return False
 
 
+async def register_line_group(group_id: str, group_name: str = "") -> bool:
+    """Register or re-activate a LINE group when the bot joins."""
+    client = _get_client()
+    if client is None:
+        return False
+
+    try:
+        client.table("line_groups").upsert(
+            {
+                "group_id": group_id,
+                "group_name": group_name or "",
+                "active": True,
+            },
+            on_conflict="group_id",
+        ).execute()
+        logger.info("LINE group registered/reactivated: %s", group_id[:12])
+        return True
+    except Exception as exc:
+        logger.error("LINE group register error: %s", exc)
+        return False
+
+
+async def deactivate_line_group(group_id: str) -> bool:
+    """Mark a LINE group as inactive when the bot leaves."""
+    client = _get_client()
+    if client is None:
+        return False
+
+    try:
+        client.table("line_groups").update({"active": False}).eq(
+            "group_id", group_id
+        ).execute()
+        logger.info("LINE group deactivated: %s", group_id[:12])
+        return True
+    except Exception as exc:
+        logger.error("LINE group deactivate error: %s", exc)
+        return False
+
+
+async def get_active_line_groups() -> list[str]:
+    """Return all active LINE group IDs from the database."""
+    client = _get_client()
+    if client is None:
+        return []
+
+    try:
+        result = (
+            client.table("line_groups")
+            .select("group_id")
+            .eq("active", True)
+            .execute()
+        )
+        return [row["group_id"] for row in (result.data or [])]
+    except Exception as exc:
+        logger.error("LINE groups query error: %s", exc)
+        return []
+
+
 async def get_user_incidents(line_user_id: str) -> list[dict]:
     """Fetch all incidents for a specific LINE user, newest first."""
     client = _get_client()
