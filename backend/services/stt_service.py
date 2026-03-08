@@ -78,20 +78,29 @@ async def transcribe_audio(audio_base64: str) -> str:
         logger.warning("Invalid base64 audio data")
         return ""
 
-    try:
-        audio_file = io.BytesIO(audio_bytes)
-        audio_file.name = f"audio{ext}"
+    # Try original format first, then retry as .wav if it fails
+    for attempt_ext in [ext, ".wav"] if ext != ".wav" else [ext]:
+        try:
+            audio_file = io.BytesIO(audio_bytes)
+            audio_file.name = f"audio{attempt_ext}"
 
-        client = _get_client()
-        transcription = client.audio.transcriptions.create(
-            model=STT_MODEL,
-            file=audio_file,
-            language="th",
-        )
-        transcribed = transcription.text.strip()
-        logger.info("Whisper transcription succeeded (%d chars, format=%s)", len(transcribed), ext)
-        return transcribed
-    except Exception as exc:
-        logger.error("Whisper transcription error: %s", exc)
+            client = _get_client()
+            transcription = client.audio.transcriptions.create(
+                model=STT_MODEL,
+                file=audio_file,
+                language="th",
+            )
+            transcribed = transcription.text.strip()
+            if transcribed:
+                logger.info(
+                    "Whisper transcription succeeded (%d chars, format=%s)",
+                    len(transcribed),
+                    attempt_ext,
+                )
+                return transcribed
+            logger.warning("Whisper returned empty text (format=%s)", attempt_ext)
+        except Exception as exc:
+            logger.warning("Whisper attempt failed (format=%s): %s", attempt_ext, exc)
 
+    logger.error("All Whisper transcription attempts failed")
     return ""

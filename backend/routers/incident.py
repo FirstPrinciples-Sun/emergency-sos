@@ -8,7 +8,7 @@ from models.schemas import IncidentReport, IncidentResponse, IncidentStatus, Tri
 from services.stt_service import transcribe_audio
 from services.ai_dispatcher import analyze_incident
 from services.line_service import send_line_notification, send_direct_notification
-from services.supabase_service import log_incident, upload_audio
+from services.supabase_service import log_incident, upload_audio, get_user_profile
 from services.auth import verify_liff_token, extract_token
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,29 @@ async def report_incident(
             detail="ไม่สามารถรับข้อมูลเหตุการณ์ได้ กรุณาบันทึกเสียงหรือพิมพ์ข้อความ",
         )
 
+    # --- Step 1.5: Fetch medical info for LINE notification ---
+    medical_info: str | None = None
+    if report.line_user_id:
+        try:
+            profile = await get_user_profile(report.line_user_id)
+            if profile:
+                parts = []
+                if profile.get("blood_type"):
+                    parts.append(f"กรุ๊ปเลือด: {profile['blood_type']}")
+                if profile.get("allergies"):
+                    parts.append(f"แพ้ยา: {profile['allergies']}")
+                if profile.get("chronic_diseases"):
+                    parts.append(f"โรคประจำตัว: {profile['chronic_diseases']}")
+                if profile.get("emergency_contact_name"):
+                    ec = profile["emergency_contact_name"]
+                    if profile.get("emergency_contact_phone"):
+                        ec += f" ({profile['emergency_contact_phone']})"
+                    parts.append(f"ผู้ติดต่อฉุกเฉิน: {ec}")
+                if parts:
+                    medical_info = " | ".join(parts)
+        except Exception as exc:
+            logger.warning("Could not fetch medical profile: %s", exc)
+
     # --- Step 2: AI Triage OR Direct Send ---
     if report.skip_ai:
         logger.info("Skipping AI triage for incident %s (direct send)", report.incident_id[:8])
@@ -80,12 +103,12 @@ async def report_incident(
             confidence_score=0.0,
         )
         # --- Step 3: Direct LINE Notification ---
-        line_sent = await send_direct_notification(report, incident_text, audio_url)
+        line_sent = await send_direct_notification(report, incident_text, audio_url, medical_info)
     else:
         logger.info("Running AI triage for incident %s", report.incident_id[:8])
         triage = await analyze_incident(incident_text)
         # --- Step 3: LINE Notification with AI result + audio ---
-        line_sent = await send_line_notification(report, triage, audio_url)
+        line_sent = await send_line_notification(report, triage, audio_url, medical_info)
 
     # --- Step 4: Database Logging ---
     await log_incident(report, triage, line_sent)

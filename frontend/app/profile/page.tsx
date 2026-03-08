@@ -356,7 +356,7 @@ export default function ProfilePage() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between text-slate-400">
                   <span>เวอร์ชัน</span>
-                  <span className="text-white font-medium">2.0.0</span>
+                  <span className="text-white font-medium">2.3.0</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>สายด่วนกู้ชีพ</span>

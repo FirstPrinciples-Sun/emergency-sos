@@ -320,7 +320,11 @@ export default function SOSPage() {
             <div className="text-center">
               <p className="text-lg font-bold">กำลังส่งข้อมูล...</p>
               <p className="text-sm text-slate-400 mt-1">
-                {skipAi ? "กำลังส่งข้อมูลให้เจ้าหน้าที่โดยตรง" : "AI กำลังวิเคราะห์และจัดลำดับเหตุการณ์"}
+                {audioBase64 && !transcript
+                  ? "กำลังแปลงเสียงเป็นข้อความ (Whisper AI)..."
+                  : skipAi
+                    ? "กำลังส่งข้อมูลให้เจ้าหน้าที่โดยตรง"
+                    : "AI กำลังวิเคราะห์และจัดลำดับเหตุการณ์"}
               </p>
             </div>
           </div>

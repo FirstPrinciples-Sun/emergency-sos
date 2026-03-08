@@ -32,6 +32,7 @@ def format_line_message(
     incident: IncidentReport,
     triage: TriageResult,
     audio_url: str | None = None,
+    medical_info: str | None = None,
 ) -> str:
     """Build a clean plain-text message for LINE push (AI-analysed)."""
     google_maps_url = f"https://maps.google.com/?q={incident.latitude},{incident.longitude}"
@@ -55,6 +56,8 @@ def format_line_message(
         f"📞 โทร: {phone_str} | ผู้แจ้ง: {reporter_name}\n"
         f"🕐 เวลา: {incident.timestamp.strftime('%Y-%m-%d %H:%M')}"
     )
+    if medical_info:
+        message += f"\n🏥 {medical_info}"
     if audio_url:
         message += f"\n🔊 เสียง: {audio_url}"
     return message
@@ -64,6 +67,7 @@ def format_direct_message(
     incident: IncidentReport,
     incident_text: str,
     audio_url: str | None = None,
+    medical_info: str | None = None,
 ) -> str:
     """Build a plain-text message for direct (skip-AI) reports."""
     google_maps_url = f"https://maps.google.com/?q={incident.latitude},{incident.longitude}"
@@ -81,6 +85,8 @@ def format_direct_message(
         f"📞 โทร: {phone_str} | ผู้แจ้ง: {reporter_name}\n"
         f"🕐 เวลา: {incident.timestamp.strftime('%Y-%m-%d %H:%M')}"
     )
+    if medical_info:
+        message += f"\n🏥 {medical_info}"
     if audio_url:
         message += f"\n🔊 เสียง: {audio_url}"
     return message
@@ -141,9 +147,10 @@ async def send_line_notification(
     incident: IncidentReport,
     triage: TriageResult,
     audio_url: str | None = None,
+    medical_info: str | None = None,
 ) -> bool:
     """Send an AI-analyzed incident notification to all LINE groups."""
-    text = format_line_message(incident, triage, audio_url)
+    text = format_line_message(incident, triage, audio_url, medical_info)
     return await _broadcast_to_groups(text, incident.incident_id)
 
 
@@ -151,7 +158,8 @@ async def send_direct_notification(
     incident: IncidentReport,
     incident_text: str,
     audio_url: str | None = None,
+    medical_info: str | None = None,
 ) -> bool:
     """Send a direct (non-AI) notification to all LINE groups."""
-    text = format_direct_message(incident, incident_text, audio_url)
+    text = format_direct_message(incident, incident_text, audio_url, medical_info)
     return await _broadcast_to_groups(text, incident.incident_id)
