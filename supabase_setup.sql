@@ -72,26 +72,44 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_line_user_id
     ON documents(line_user_id);
 
--- 4. Storage bucket for documents
+-- 4. Storage bucket for documents (private)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('documents', 'documents', FALSE)
 ON CONFLICT (id) DO NOTHING;
 
+-- 4b. Storage bucket for audio (PUBLIC – rescue workers access via LINE)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('audio', 'audio', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
 -- 5. Storage policies for documents bucket
 -- Allow authenticated uploads
-CREATE POLICY "Users can upload documents"
+CREATE POLICY IF NOT EXISTS "Users can upload documents"
     ON storage.objects FOR INSERT
     WITH CHECK (bucket_id = 'documents');
 
 -- Allow users to read their own documents
-CREATE POLICY "Users can read own documents"
+CREATE POLICY IF NOT EXISTS "Users can read own documents"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'documents');
 
 -- Allow users to delete their own documents
-CREATE POLICY "Users can delete own documents"
+CREATE POLICY IF NOT EXISTS "Users can delete own documents"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'documents');
+
+-- 5b. Storage policies for audio bucket (public read, service-key upload)
+CREATE POLICY IF NOT EXISTS "Anyone can read audio"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'audio');
+
+CREATE POLICY IF NOT EXISTS "Service can upload audio"
+    ON storage.objects FOR INSERT
+    WITH CHECK (bucket_id = 'audio');
+
+CREATE POLICY IF NOT EXISTS "Service can delete audio"
+    ON storage.objects FOR DELETE
+    USING (bucket_id = 'audio');
 
 -- 6. PDPA Consent table
 CREATE TABLE IF NOT EXISTS pdpa_consents (

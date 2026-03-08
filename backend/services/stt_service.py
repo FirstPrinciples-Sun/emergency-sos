@@ -27,7 +27,7 @@ def _get_client():
     return _client
 
 
-# MIME type -> file extension mapping for Whisper
+# MIME type -> file extension mapping for Whisper (covers all platforms)
 MIME_EXT_MAP = {
     "audio/webm": ".webm",
     "audio/ogg": ".ogg",
@@ -35,8 +35,15 @@ MIME_EXT_MAP = {
     "audio/m4a": ".m4a",
     "audio/aac": ".aac",
     "audio/wav": ".wav",
+    "audio/wave": ".wav",
     "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
     "audio/x-m4a": ".m4a",
+    "audio/x-wav": ".wav",
+    "audio/3gpp": ".3gp",
+    "audio/3gpp2": ".3g2",
+    "audio/amr": ".amr",
+    "video/mp4": ".mp4",  # some devices report video/mp4 for audio
 }
 
 

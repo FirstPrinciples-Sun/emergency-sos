@@ -20,17 +20,23 @@ interface SpeechRecognitionErrorEvent extends Event {
 }
 
 function getSupportedMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
   const types = [
     "audio/webm;codecs=opus",
     "audio/webm",
     "audio/ogg;codecs=opus",
     "audio/ogg",
+    "audio/mp4;codecs=mp4a.40.2",
     "audio/mp4",
     "audio/aac",
+    "audio/wav",
+    "audio/x-m4a",
   ];
   for (const t of types) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) {
-      return t;
+    try {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    } catch {
+      // Some browsers throw on isTypeSupported
     }
   }
   return "";
@@ -86,6 +92,12 @@ export default function VoiceRecorder({
   }, []);
 
   const startRecording = async () => {
+    // Check MediaRecorder support before anything
+    if (typeof MediaRecorder === "undefined") {
+      setPermissionDenied(true);
+      return;
+    }
+
     chunksRef.current = [];
     setTranscript("");
     setInterimTranscript("");
@@ -336,6 +348,18 @@ export default function VoiceRecorder({
               <span className="text-slate-500 italic">{interimTranscript}</span>
             )}
           </p>
+        </div>
+      )}
+
+      {/* Whisper fallback notice when browser STT unavailable */}
+      {isRecording && !displayTranscript && seconds > 2 && (
+        <div className="w-full bg-blue-500/10 rounded-xl p-3 border border-blue-500/20 animate-fade-in-up">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-blue-400 text-sm">cloud_upload</span>
+            <span className="text-xs text-blue-300">
+              ระบบจะแปลงเสียงเป็นข้อความอัตโนมัติหลังหยุดบันทึก
+            </span>
+          </div>
         </div>
       )}
 

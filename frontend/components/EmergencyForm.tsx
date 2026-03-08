@@ -67,8 +67,13 @@ export default function EmergencyForm({
           <span className="material-symbols-outlined filled text-emerald-400">check_circle</span>
           <div>
             <span className="text-sm font-semibold text-emerald-300">บันทึกเสียงเรียบร้อยแล้ว</span>
-            {transcript && (
+            {transcript ? (
               <p className="text-xs text-slate-400 mt-1 line-clamp-2">&ldquo;{transcript}&rdquo;</p>
+            ) : (
+              <p className="text-xs text-blue-400 mt-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs">cloud_upload</span>
+                ระบบจะแปลงเสียงเป็นข้อความให้อัตโนมัติ
+              </p>
             )}
           </div>
         </div>

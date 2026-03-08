@@ -114,8 +114,15 @@ AUDIO_MIME_MAP = {
     "audio/m4a": (".m4a", "audio/mp4"),
     "audio/aac": (".aac", "audio/aac"),
     "audio/wav": (".wav", "audio/wav"),
+    "audio/wave": (".wav", "audio/wav"),
     "audio/mpeg": (".mp3", "audio/mpeg"),
+    "audio/mp3": (".mp3", "audio/mpeg"),
     "audio/x-m4a": (".m4a", "audio/mp4"),
+    "audio/x-wav": (".wav", "audio/wav"),
+    "audio/3gpp": (".3gp", "audio/3gpp"),
+    "audio/3gpp2": (".3g2", "audio/3gpp2"),
+    "audio/amr": (".amr", "audio/amr"),
+    "video/mp4": (".mp4", "audio/mp4"),
 }
 
 
@@ -138,7 +145,11 @@ def _parse_audio_data(raw: str) -> tuple[bytes, str, str]:
 
 
 async def upload_audio(incident_id: str, audio_base64: str) -> str | None:
-    """Upload audio file to Supabase Storage and return the public URL."""
+    """Upload audio file to Supabase Storage and return an accessible URL.
+
+    Tries the ``audio`` bucket first (public).  Falls back to the
+    ``documents`` bucket with a 7-day signed URL.
+    """
     client = _get_client()
     if client is None:
         return None
@@ -147,15 +158,35 @@ async def upload_audio(incident_id: str, audio_base64: str) -> str | None:
         audio_bytes, ext, content_type = _parse_audio_data(audio_base64)
         file_path = f"audio/{incident_id}{ext}"
 
-        client.storage.from_("documents").upload(
+        # --- try public "audio" bucket first ---
+        bucket_name = "audio"
+        try:
+            client.storage.from_(bucket_name).upload(
+                file_path,
+                audio_bytes,
+                file_options={"content-type": content_type},
+            )
+            url = client.storage.from_(bucket_name).get_public_url(file_path)
+            logger.info("Audio uploaded to '%s' bucket for %s (format=%s)", bucket_name, incident_id[:8], ext)
+            return url
+        except Exception as e1:
+            logger.warning("Audio bucket upload failed (%s), falling back to documents bucket", e1)
+
+        # --- fallback: "documents" bucket with signed URL (7 days) ---
+        bucket_name = "documents"
+        client.storage.from_(bucket_name).upload(
             file_path,
             audio_bytes,
             file_options={"content-type": content_type},
         )
+        res = client.storage.from_(bucket_name).create_signed_url(file_path, 604800)
+        signed_url = res.get("signedURL") or res.get("signedUrl", "")
+        if signed_url:
+            logger.info("Audio uploaded to '%s' bucket (signed URL) for %s", bucket_name, incident_id[:8])
+            return signed_url
 
-        public_url = client.storage.from_("documents").get_public_url(file_path)
-        logger.info("Audio uploaded for incident %s (format=%s)", incident_id[:8], ext)
-        return public_url
+        # last resort – public URL (works only if bucket is public)
+        return client.storage.from_(bucket_name).get_public_url(file_path)
     except Exception as exc:
         logger.error("Audio upload error: %s", exc)
         return None
