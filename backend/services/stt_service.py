@@ -1,7 +1,6 @@
-"""Speech-to-Text service using Groq Whisper API (free, fast, high-quality).
+"""Speech-to-Text service using OpenAI Whisper API.
 
-Uses OpenAI AsyncOpenAI SDK with max_retries=0 to avoid retry-loop timeout
-on Vercel serverless.
+Uses the official OpenAI API (whisper-1) for reliable, fast transcription.
 """
 
 import base64
@@ -14,47 +13,27 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Groq Whisper (free) – fallback to KKU if GROQ key not set
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
-STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
+# OpenAI official API
+OPENAI_STT_KEY = os.environ.get("OPENAI_STT_KEY", "").strip()
+STT_MODEL = os.environ.get("STT_MODEL", "whisper-1")
 
-# Fallback: KKU endpoint
-_KKU_API_KEY = os.environ.get("API_KEY", "").strip()
-_KKU_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://gen.ai.kku.ac.th/api/v1")
-
-_groq_client = None
-_kku_client = None
+_client = None
 
 
-def _get_groq_client():
-    global _groq_client
-    if _groq_client is None:
+def _get_client():
+    global _client
+    if _client is None:
         from openai import AsyncOpenAI
-        _groq_client = AsyncOpenAI(
-            api_key=GROQ_API_KEY,
-            base_url="https://api.groq.com/openai/v1",
-            max_retries=0,
+        _client = AsyncOpenAI(
+            api_key=OPENAI_STT_KEY,
+            max_retries=1,
             timeout=30.0,
         )
-        logger.info("STT: Groq client initialized (%s)", STT_MODEL)
-    return _groq_client
+        logger.info("STT: OpenAI client ready (model=%s)", STT_MODEL)
+    return _client
 
 
-def _get_kku_client():
-    global _kku_client
-    if _kku_client is None:
-        from openai import AsyncOpenAI
-        _kku_client = AsyncOpenAI(
-            api_key=_KKU_API_KEY,
-            base_url=_KKU_BASE_URL,
-            max_retries=0,
-            timeout=30.0,
-        )
-        logger.info("STT: KKU client initialized")
-    return _kku_client
-
-
-# MIME type -> file extension mapping for Whisper (covers all platforms)
+# MIME type -> file extension mapping (covers all mobile platforms)
 MIME_EXT_MAP = {
     "audio/webm": ".webm",
     "audio/ogg": ".ogg",
@@ -86,8 +65,12 @@ def _detect_audio_ext(data_uri_header: str | None) -> str:
 
 
 async def transcribe_audio(audio_base64: str) -> str:
-    """Decode base64 audio and transcribe via Groq Whisper API."""
+    """Decode base64 audio and transcribe via OpenAI Whisper."""
     if not audio_base64:
+        return ""
+
+    if not OPENAI_STT_KEY:
+        logger.error("STT: OPENAI_STT_KEY not set")
         return ""
 
     # Detect MIME type from data URI header before stripping it
@@ -104,15 +87,9 @@ async def transcribe_audio(audio_base64: str) -> str:
         logger.warning("Invalid base64 audio data")
         return ""
 
-    logger.info("STT: audio size=%d bytes, format=%s", len(audio_bytes), ext)
+    logger.info("STT: audio %d bytes, format=%s", len(audio_bytes), ext)
 
-    # Choose client
-    if GROQ_API_KEY:
-        client = _get_groq_client()
-        provider = "Groq"
-    else:
-        client = _get_kku_client()
-        provider = "KKU"
+    client = _get_client()
 
     # Try original format first, then retry as .wav if it fails
     for attempt_ext in [ext, ".wav"] if ext != ".wav" else [ext]:
@@ -125,16 +102,13 @@ async def transcribe_audio(audio_base64: str) -> str:
                 file=audio_file,
                 language="th",
             )
-            transcribed = transcription.text.strip()
-            if transcribed:
-                logger.info(
-                    "STT OK (%s, %d chars, format=%s, model=%s)",
-                    provider, len(transcribed), attempt_ext, STT_MODEL,
-                )
-                return transcribed
-            logger.warning("STT empty text (%s, format=%s)", provider, attempt_ext)
+            text = transcription.text.strip()
+            if text:
+                logger.info("STT OK: %d chars (format=%s)", len(text), attempt_ext)
+                return text
+            logger.warning("STT empty (format=%s)", attempt_ext)
         except Exception as exc:
-            logger.warning("STT failed (%s, format=%s): %s", provider, attempt_ext, exc)
+            logger.warning("STT failed (format=%s): %s", attempt_ext, exc)
 
     logger.error("All STT attempts failed")
     return ""
