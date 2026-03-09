@@ -102,10 +102,11 @@ async def transcribe_audio(audio_base64: str) -> str:
                 model=STT_MODEL,
                 file=audio_file,
                 language="th",
+                prompt="สวัสดีครับ นี่คือการแจ้งเหตุฉุกเฉิน",
             )
             text = transcription.text.strip()
             if text:
-                logger.info("STT OK: %d chars (format=%s)", len(text), attempt_ext)
+                logger.info("STT OK: %d chars (format=%s) text=%s", len(text), attempt_ext, text[:200])
                 return text
             logger.warning("STT empty (format=%s)", attempt_ext)
         except Exception as exc:
