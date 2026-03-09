@@ -15,7 +15,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
-STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
+STT_MODEL = "whisper-large-v3-turbo"  # Groq's fastest Whisper model
 
 _client = None
 
