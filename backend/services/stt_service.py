@@ -1,6 +1,7 @@
-"""Speech-to-Text service using OpenAI Whisper API.
+"""Speech-to-Text service using Groq Whisper API (free, fast, high-quality).
 
-Uses the official OpenAI API (whisper-1) for reliable, fast transcription.
+Uses OpenAI SDK with AsyncOpenAI pointed at Groq endpoint.
+whisper-large-v3-turbo: fastest Groq model with excellent Thai support.
 """
 
 import base64
@@ -13,9 +14,8 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# OpenAI official API
-OPENAI_STT_KEY = os.environ.get("OPENAI_STT_KEY", "").strip()
-STT_MODEL = os.environ.get("STT_MODEL", "whisper-1")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+STT_MODEL = os.environ.get("STT_MODEL", "whisper-large-v3-turbo")
 
 _client = None
 
@@ -25,11 +25,12 @@ def _get_client():
     if _client is None:
         from openai import AsyncOpenAI
         _client = AsyncOpenAI(
-            api_key=OPENAI_STT_KEY,
+            api_key=GROQ_API_KEY,
+            base_url="https://api.groq.com/openai/v1",
             max_retries=1,
             timeout=30.0,
         )
-        logger.info("STT: OpenAI client ready (model=%s)", STT_MODEL)
+        logger.info("STT: Groq client ready (model=%s)", STT_MODEL)
     return _client
 
 
@@ -65,12 +66,12 @@ def _detect_audio_ext(data_uri_header: str | None) -> str:
 
 
 async def transcribe_audio(audio_base64: str) -> str:
-    """Decode base64 audio and transcribe via OpenAI Whisper."""
+    """Decode base64 audio and transcribe via Groq Whisper."""
     if not audio_base64:
         return ""
 
-    if not OPENAI_STT_KEY:
-        logger.error("STT: OPENAI_STT_KEY not set")
+    if not GROQ_API_KEY:
+        logger.error("STT: GROQ_API_KEY not set")
         return ""
 
     # Detect MIME type from data URI header before stripping it
