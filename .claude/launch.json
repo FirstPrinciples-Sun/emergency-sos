@@ -4,14 +4,8 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 3000
-    },
-    {
-      "name": "backend",
-      "runtimeExecutable": "uvicorn",
-      "runtimeArgs": ["main:app", "--reload", "--port", "8000"],
-      "port": 8000
     }
   ]
 }
