@@ -3,11 +3,15 @@
 import asyncio
 import logging
 import os
+from datetime import timezone, timedelta
 
 import httpx
 from dotenv import load_dotenv
 
 from models.schemas import IncidentReport, TriageResult
+
+# Thailand timezone (UTC+7)
+TH_TZ = timezone(timedelta(hours=7))
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -54,7 +58,7 @@ def format_line_message(
         f"📍 พิกัด: {google_maps_url}\n"
         f"จุดสังเกต: {address_str}\n"
         f"📞 โทร: {phone_str} | ผู้แจ้ง: {reporter_name}\n"
-        f"🕐 เวลา: {incident.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        f"🕐 เวลา: {incident.timestamp.astimezone(TH_TZ).strftime('%Y-%m-%d %H:%M')}"
     )
     if medical_info:
         message += f"\n🏥 {medical_info}"
@@ -83,7 +87,7 @@ def format_direct_message(
         f"📍 พิกัด: {google_maps_url}\n"
         f"จุดสังเกต: {address_str}\n"
         f"📞 โทร: {phone_str} | ผู้แจ้ง: {reporter_name}\n"
-        f"🕐 เวลา: {incident.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        f"🕐 เวลา: {incident.timestamp.astimezone(TH_TZ).strftime('%Y-%m-%d %H:%M')}"
     )
     if medical_info:
         message += f"\n🏥 {medical_info}"
