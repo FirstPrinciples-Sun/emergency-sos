@@ -79,9 +79,14 @@ def format_direct_message(
     address_str = incident.address_hint or "ไม่ระบุ"
     reporter_name = incident.display_name or "ไม่ระบุชื่อ"
 
+    # Show selected category if available
+    CAT_LABELS = {"MEDICAL": "🏥 การแพทย์", "FIRE": "🔥 ไฟไหม้", "ACCIDENT": "🚗 อุบัติเหตุ", "CRIME": "👮 ตำรวจ"}
+    cat_line = f"ประเภท: {CAT_LABELS.get(incident.selected_category or '', 'ไม่ระบุ')}\n" if incident.selected_category else ""
+
     message = (
         f"🆘 แจ้งเหตุด่วน #{incident.incident_id[:8]}\n"
         f"(ส่งตรง ไม่ผ่าน AI)\n"
+        f"{cat_line}"
         f"รายละเอียด: {incident_text}\n"
         f"---\n"
         f"📍 พิกัด: {google_maps_url}\n"

@@ -14,6 +14,7 @@ interface IncidentPayload {
   line_user_id?: string;
   display_name?: string;
   skip_ai?: boolean;
+  selected_category?: string;
 }
 
 interface TriageResult {

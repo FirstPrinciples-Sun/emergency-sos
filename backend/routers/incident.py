@@ -109,23 +109,40 @@ async def report_incident(
 
     # --- Step 2: AI Triage OR Direct Send ---
     if report.skip_ai:
-        logger.info("Skipping AI triage for incident %s (direct send)", report.incident_id[:8])
+        logger.info("Skipping AI triage for incident %s (direct send, cat=%s)", report.incident_id[:8], report.selected_category)
+
+        # Map user-selected category to Thai category + required units
+        CATEGORY_MAP = {
+            "MEDICAL": ("เจ็บป่วยฉุกเฉิน", ["รถพยาบาล"]),
+            "FIRE": ("เพลิงไหม้", ["รถดับเพลิง", "รถพยาบาล"]),
+            "ACCIDENT": ("อุบัติเหตุจราจร", ["รถพยาบาล", "ตำรวจ"]),
+            "CRIME": ("อื่นๆ", ["ตำรวจ"]),
+        }
+        cat_th, units = CATEGORY_MAP.get(report.selected_category or "", ("อื่นๆ", ["รถพยาบาล"]))
+
         triage = TriageResult(
             severity_level="HIGH",
             severity_score=7,
-            category="อื่นๆ",
+            category=cat_th,
             victim_count=None,
             key_symptoms=[],
             summary_th=incident_text[:300],
-            required_units=["รถพยาบาล"],
+            required_units=units,
             first_aid_advice="รอเจ้าหน้าที่ ณ จุดเกิดเหตุ",
             confidence_score=0.0,
         )
         # --- Step 3: Direct LINE Notification ---
         line_sent = await send_direct_notification(report, incident_text, audio_url, medical_info)
     else:
-        logger.info("Running AI triage for incident %s", report.incident_id[:8])
-        triage = await analyze_incident(incident_text)
+        logger.info("Running AI triage for incident %s (cat_hint=%s)", report.incident_id[:8], report.selected_category)
+        # Pass category hint to AI if user selected one
+        ai_text = incident_text
+        if report.selected_category:
+            CAT_HINT = {"MEDICAL": "การแพทย์", "FIRE": "ไฟไหม้", "ACCIDENT": "อุบัติเหตุ", "CRIME": "ตำรวจ/อาชญากรรม"}
+            hint = CAT_HINT.get(report.selected_category, "")
+            if hint:
+                ai_text = f"[ประเภทที่ผู้แจ้งเลือก: {hint}] {incident_text}"
+        triage = await analyze_incident(ai_text)
         # --- Step 3: LINE Notification with AI result + audio ---
         line_sent = await send_line_notification(report, triage, audio_url, medical_info)
 

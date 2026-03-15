@@ -15,7 +15,15 @@ interface EmergencyFormProps {
   isSubmitting?: boolean;
   skipAi?: boolean;
   defaultPhone?: string;
+  category?: string;
 }
+
+const CATEGORY_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  MEDICAL: { label: "การแพทย์", icon: "medical_services", color: "text-red-400" },
+  FIRE: { label: "ไฟไหม้", icon: "local_fire_department", color: "text-orange-400" },
+  ACCIDENT: { label: "อุบัติเหตุ", icon: "car_crash", color: "text-yellow-400" },
+  CRIME: { label: "ตำรวจ", icon: "shield", color: "text-blue-400" },
+};
 
 export default function EmergencyForm({
   onSubmit,
@@ -25,6 +33,7 @@ export default function EmergencyForm({
   isSubmitting,
   skipAi = false,
   defaultPhone,
+  category,
 }: EmergencyFormProps) {
   const [textDescription, setTextDescription] = useState(transcript || "");
   const [addressHint, setAddressHint] = useState("");
@@ -50,16 +59,26 @@ export default function EmergencyForm({
 
   return (
     <div className="w-full max-w-md flex flex-col gap-5 animate-fade-in-up">
-      {/* Mode indicator */}
-      <div className={`flex items-center gap-2 justify-center px-4 py-2 rounded-full text-sm font-bold ${
-        skipAi
-          ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
-          : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-      }`}>
-        <span className="material-symbols-outlined text-base">
-          {skipAi ? "bolt" : "auto_awesome"}
-        </span>
-        {skipAi ? "ส่งด่วน (ไม่ผ่าน AI)" : "AI วิเคราะห์"}
+      {/* Mode + Category indicator */}
+      <div className="flex items-center gap-2 justify-center flex-wrap">
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
+          skipAi
+            ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
+            : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+        }`}>
+          <span className="material-symbols-outlined text-base">
+            {skipAi ? "bolt" : "auto_awesome"}
+          </span>
+          {skipAi ? "ส่งด่วน" : "AI วิเคราะห์"}
+        </div>
+        {category && CATEGORY_LABELS[category] && (
+          <div className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-bold bg-white/5 border border-white/10`}>
+            <span className={`material-symbols-outlined text-base filled ${CATEGORY_LABELS[category].color}`}>
+              {CATEGORY_LABELS[category].icon}
+            </span>
+            <span className="text-slate-200">{CATEGORY_LABELS[category].label}</span>
+          </div>
+        )}
       </div>
 
       {hasAudio && (

@@ -6,8 +6,7 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { href: "/", icon: "sos", label: "แจ้งเหตุ" },
   { href: "/history", icon: "history", label: "ประวัติ" },
-  { href: "/documents", icon: "folder", label: "เอกสาร" },
-  { href: "/profile", icon: "person", label: "โปรไฟล์" },
+  { href: "/profile", icon: "person", label: "ข้อมูลของฉัน" },
 ] as const;
 
 export default function BottomNav() {

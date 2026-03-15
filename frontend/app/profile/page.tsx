@@ -80,8 +80,9 @@ export default function ProfilePage() {
       <header className="px-5 pt-6 pb-4 shrink-0">
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <span className="material-symbols-outlined text-primary">person</span>
-          โปรไฟล์
+          ข้อมูลของฉัน
         </h1>
+        <p className="text-xs text-slate-500 mt-1">ข้อมูลนี้จะถูกส่งไปพร้อมกับการแจ้งเหตุฉุกเฉิน</p>
       </header>
 
       <main className="flex-1 px-5 space-y-4 overflow-y-auto no-scrollbar">

@@ -53,6 +53,7 @@ class IncidentReport(BaseModel):
     display_name: Optional[str] = Field(default=None, max_length=100)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     skip_ai: bool = Field(default=False)
+    selected_category: Optional[str] = Field(default=None, max_length=50)
 
 
 # --- AI Triage Output ---

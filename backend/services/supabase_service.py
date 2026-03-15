@@ -70,6 +70,7 @@ async def log_incident(
         "first_aid_advice": triage.first_aid_advice,
         "confidence_score": triage.confidence_score,
         "line_sent": line_sent,
+        "selected_category": incident.selected_category,
     }
 
     try:
@@ -77,6 +78,17 @@ async def log_incident(
         logger.info("Incident %s logged to Supabase", incident.incident_id[:8])
         return True
     except Exception as exc:
+        # Retry without selected_category if column doesn't exist yet
+        if "selected_category" in str(exc):
+            logger.warning("selected_category column not found, retrying without it")
+            record.pop("selected_category", None)
+            try:
+                client.table("incidents").insert(record).execute()
+                logger.info("Incident %s logged (without selected_category)", incident.incident_id[:8])
+                return True
+            except Exception as exc2:
+                logger.error("Supabase insert retry error: %s", exc2)
+                return False
         logger.error("Supabase insert error: %s", exc)
         return False
 

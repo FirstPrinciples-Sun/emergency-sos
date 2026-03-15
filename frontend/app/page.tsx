@@ -125,6 +125,7 @@ export default function SOSPage() {
         line_user_id: user?.userId || undefined,
         display_name: user?.displayName || undefined,
         skip_ai: formData.skipAi || false,
+        selected_category: category || undefined,
       });
       setResponse(result);
       setState("done");
@@ -335,6 +336,7 @@ export default function SOSPage() {
             onBack={() => setState("recording")}
             skipAi={skipAi}
             defaultPhone={defaultPhone}
+            category={category}
           />
         )}
 
